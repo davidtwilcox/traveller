@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "traveller"
+version = "0.1.0"
+description = "Random generator for the Traveller TTRPG"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+traveller-dice = "traveller.cli:main"
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+lint = ["ruff>=0.5"]
+tox = ["tox>=4.11"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.format]
+line-ending = "lf"
+quote-style = "double"
+indent-style = "space"
+
+[tool.tox]
+requires = ["tox>=4.11"]
+env_list = ["py39", "lint"]
+isolated_build = true
+
+[tool.tox.envs.py39]
+description = "run unit tests"
+deps = ["pytest>=7"]
+commands = [["python", "-m", "pytest"]]
+
+[tool.tox.envs.lint]
+description = "run ruff lints and formatting checks"
+deps = ["ruff>=0.5"]
+commands = [
+  ["python", "-m", "ruff", "check", "."],
+  ["python", "-m", "ruff", "format", "--check", "."],
+]
