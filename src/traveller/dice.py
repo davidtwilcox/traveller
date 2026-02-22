@@ -11,3 +11,7 @@ def roll_dice(num_dice: int, sides: int, modifier: int = 0) -> Tuple[List[int], 
     rolls = [random.randint(1, sides) for _ in range(num_dice)]
     total = sum(rolls) + modifier
     return rolls, total
+
+def roll_osr_stats() -> Tuple[List[int], int]:
+    rolls, total = roll_dice(3, 6)
+    return rolls, total

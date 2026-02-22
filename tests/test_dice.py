@@ -1,6 +1,6 @@
 import pytest
 
-from traveller.dice import roll_dice
+from traveller.dice import roll_dice, roll_osr_stats
 
 
 def test_roll_dice_returns_rolls_and_total():
@@ -19,3 +19,10 @@ def test_roll_dice_applies_modifier():
 def test_roll_dice_rejects_invalid_inputs(num_dice, sides):
     with pytest.raises(ValueError):
         roll_dice(num_dice, sides)
+
+
+def test_roll_osr_stats_returns_3d6():
+    rolls, total = roll_osr_stats()
+    assert len(rolls) == 3
+    assert all(1 <= r <= 6 for r in rolls)
+    assert total == sum(rolls)
