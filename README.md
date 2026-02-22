@@ -1,2 +1,2 @@
-# traveller
-Random generator for the Traveller TTRPG
+# Traveller
+Tools for solo TTRPG players.
