@@ -209,3 +209,10 @@ __marimo__/
 uv.lock
 
 .idea/
+
+# Claude Code
+.claude/
+
+# Node / Next.js
+node_modules/
+.next/

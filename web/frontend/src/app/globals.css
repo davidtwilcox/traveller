@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-950 text-gray-100;
+  }
+}
+
+@layer utilities {
+  .ticker-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .ticker-scrollbar::-webkit-scrollbar-track {
+    @apply bg-gray-900;
+  }
+  .ticker-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-gray-600 rounded;
+  }
+}
