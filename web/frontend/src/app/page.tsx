@@ -20,6 +20,16 @@ interface RollEntry {
   statRolls?: { rolls: number[]; total: number }[];
 }
 
+async function parseJsonOrThrow(res: Response) {
+  const text = await res.text();
+  if (!text) throw new Error("No response from API server. Is the Flask server running?");
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("Invalid response from API server.");
+  }
+}
+
 export default function Home() {
   const [numDice, setNumDice] = useState(2);
   const [sides, setSides] = useState<(typeof SIDES_OPTIONS)[number]>(6);
@@ -46,7 +56,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ num_dice: numDice, sides, modifier: mod, drop_lowest: dropLowest, advantage }),
       });
-      const data = await res.json();
+      const data = await parseJsonOrThrow(res);
       if (!res.ok) throw new Error(data.error ?? "Roll failed");
 
       const rawSum = data.rolls.reduce((a: number, b: number) => a + b, 0);
@@ -79,7 +89,7 @@ export default function Home() {
     setError(null);
     try {
       const res = await fetch("/api/roll-osr-stats", { method: "POST" });
-      const data = await res.json();
+      const data = await parseJsonOrThrow(res);
       if (!res.ok) throw new Error(data.error ?? "Roll failed");
 
       setHistory((prev) => [
@@ -107,7 +117,7 @@ export default function Home() {
     setError(null);
     try {
       const res = await fetch(endpoint, { method: "POST" });
-      const data = await res.json();
+      const data = await parseJsonOrThrow(res);
       if (!res.ok) throw new Error(data.error ?? "Roll failed");
 
       setHistory((prev) => [
@@ -148,7 +158,7 @@ export default function Home() {
         {/* Standard group */}
         <div className="flex flex-col gap-2">
           <span className="text-xs text-gray-500 uppercase tracking-widest">Standard</span>
-          <div className="border border-gray-800 rounded-lg p-4 flex flex-col gap-4">
+          <div className="border border-gray-800 rounded-lg p-4 flex flex-col gap-4" suppressHydrationWarning>
             {/* Number of dice */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-gray-400 uppercase tracking-widest">
