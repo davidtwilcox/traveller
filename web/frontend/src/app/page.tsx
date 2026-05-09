@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const SIDES_OPTIONS = [4, 6, 8, 10, 12, 20, 30, 100] as const;
+const SIDES_OPTIONS = [3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 30, 100] as const;
 
 type AdvantageMode = "disadvantage" | "normal" | "advantage";
 
