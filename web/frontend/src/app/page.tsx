@@ -62,11 +62,16 @@ export default function Home() {
 
   // Load presets on startup
   useEffect(() => {
-    fetch("/api/presets")
-      .then((res) => parseJsonOrThrow(res))
-      .then((data) => setPresets(data.presets ?? []))
-      .catch(() => {});
+    try {
+      const stored = localStorage.getItem("traveller-presets");
+      if (stored) setPresets(JSON.parse(stored));
+    } catch {}
   }, []);
+
+  function savePresetsToStorage(updated: Preset[]) {
+    localStorage.setItem("traveller-presets", JSON.stringify(updated));
+    setPresets(updated);
+  }
 
   function serializeSettings(): PresetSettings {
     return { numDice, sides, modifier, dropLowest, advantage };
@@ -179,36 +184,21 @@ export default function Home() {
     }
   }
 
-  async function handleAddPreset() {
+  function handleAddPreset() {
     const name = window.prompt("Enter a preset name (15 characters max):");
     if (!name) return;
     const trimmed = name.trim().slice(0, 15);
     if (!trimmed) return;
-    const settings = serializeSettings();
-    try {
-      const res = await fetch("/api/presets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed, settings }),
-      });
-      const data = await parseJsonOrThrow(res);
-      if (!res.ok) throw new Error(data.error ?? "Failed to save preset");
-      setPresets((prev) => [...prev, { name: trimmed, settings }]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+    if (presets.some((p) => p.name === trimmed)) {
+      setError("A preset with that name already exists.");
+      return;
     }
+    savePresetsToStorage([...presets, { name: trimmed, settings: serializeSettings() }]);
   }
 
-  async function handleDeletePreset(name: string) {
-    try {
-      const res = await fetch(`/api/presets/${encodeURIComponent(name)}`, { method: "DELETE" });
-      const data = await parseJsonOrThrow(res);
-      if (!res.ok) throw new Error(data.error ?? "Failed to delete preset");
-      setPresets((prev) => prev.filter((p) => p.name !== name));
-      setDeleteMode(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    }
+  function handleDeletePreset(name: string) {
+    savePresetsToStorage(presets.filter((p) => p.name !== name));
+    setDeleteMode(false);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
