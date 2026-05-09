@@ -21,6 +21,7 @@ interface Preset {
 
 interface RollEntry {
   id: number;
+  label: string;
   notation: string;
   rolls: number[];
   rawSum: number;
@@ -49,6 +50,7 @@ export default function Home() {
   const [modifier, setModifier] = useState("");
   const [dropLowest, setDropLowest] = useState(false);
   const [advantage, setAdvantage] = useState<AdvantageMode>("normal");
+  const [numRolls, setNumRolls] = useState(1);
   const [history, setHistory] = useState<RollEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,46 +79,75 @@ export default function Home() {
     return { numDice, sides, modifier, dropLowest, advantage };
   }
 
-  async function applyPresetRoll(settings: PresetSettings) {
+  async function rollOnce(settings: PresetSettings): Promise<{ rolls: number[]; total: number; otherRolls?: number[]; otherTotal?: number }> {
+    const mod = settings.modifier !== "" ? parseInt(settings.modifier, 10) : 0;
+    const res = await fetch("/api/roll", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        num_dice: settings.numDice,
+        sides: settings.sides,
+        modifier: mod,
+        drop_lowest: settings.dropLowest,
+        advantage: settings.advantage,
+      }),
+    });
+    const data = await parseJsonOrThrow(res);
+    if (!res.ok) throw new Error(data.error ?? "Roll failed");
+    return { rolls: data.rolls, total: data.total, otherRolls: data.other_rolls, otherTotal: data.other_total };
+  }
+
+  async function applyPresetRoll(settings: PresetSettings, label?: string, count = 1) {
     setLoading(true);
     setError(null);
     const mod = settings.modifier !== "" ? parseInt(settings.modifier, 10) : 0;
+    const modStr = mod > 0 ? `+${mod}` : mod < 0 ? `${mod}` : "";
+    const advStr =
+      settings.advantage !== "normal"
+        ? ` (${settings.advantage === "advantage" ? "adv" : "dis"})`
+        : "";
+    const notation = `${settings.numDice}d${settings.sides}${modStr}${settings.dropLowest ? " (drop lowest)" : ""}${advStr}`;
+
     try {
-      const res = await fetch("/api/roll", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          num_dice: settings.numDice,
-          sides: settings.sides,
-          modifier: mod,
-          drop_lowest: settings.dropLowest,
-          advantage: settings.advantage,
-        }),
-      });
-      const data = await parseJsonOrThrow(res);
-      if (!res.ok) throw new Error(data.error ?? "Roll failed");
-
-      const rawSum = data.rolls.reduce((a: number, b: number) => a + b, 0);
-      const modStr = mod > 0 ? `+${mod}` : mod < 0 ? `${mod}` : "";
-      const advStr =
-        settings.advantage !== "normal"
-          ? ` (${settings.advantage === "advantage" ? "adv" : "dis"})`
-          : "";
-
-      setHistory((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          notation: `${settings.numDice}d${settings.sides}${modStr}${settings.dropLowest ? " (drop lowest)" : ""}${advStr}`,
-          rolls: data.rolls,
-          rawSum,
-          modifier: mod,
-          total: data.total,
-          timestamp: new Date().toLocaleTimeString(),
-          otherRolls: data.other_rolls,
-          otherTotal: data.other_total,
-        },
-      ]);
+      if (count > 1) {
+        const results: { rolls: number[]; total: number }[] = [];
+        for (let i = 0; i < count; i++) {
+          const r = await rollOnce(settings);
+          results.push({ rolls: r.rolls, total: r.total });
+        }
+        setHistory((prev) => [
+          ...prev,
+          {
+            id: Date.now(),
+            label: label ?? notation,
+            notation,
+            rolls: [],
+            rawSum: 0,
+            modifier: mod,
+            total: 0,
+            timestamp: new Date().toLocaleTimeString(),
+            statRolls: results,
+          },
+        ]);
+      } else {
+        const r = await rollOnce(settings);
+        const rawSum = r.rolls.reduce((a, b) => a + b, 0);
+        setHistory((prev) => [
+          ...prev,
+          {
+            id: Date.now(),
+            label: label ?? notation,
+            notation,
+            rolls: r.rolls,
+            rawSum,
+            modifier: mod,
+            total: r.total,
+            timestamp: new Date().toLocaleTimeString(),
+            otherRolls: r.otherRolls,
+            otherTotal: r.otherTotal,
+          },
+        ]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -125,7 +156,7 @@ export default function Home() {
   }
 
   async function handleRoll() {
-    await applyPresetRoll(serializeSettings());
+    await applyPresetRoll(serializeSettings(), undefined, numRolls);
   }
 
   async function handleRollOSRStats() {
@@ -140,6 +171,7 @@ export default function Home() {
         ...prev,
         {
           id: Date.now(),
+          label: "OSR Stats",
           notation: "OSR Stats",
           rolls: [],
           rawSum: 0,
@@ -168,6 +200,7 @@ export default function Home() {
         ...prev,
         {
           id: Date.now(),
+          label: notation,
           notation,
           rolls: data.rolls,
           rawSum: 0,
@@ -220,6 +253,22 @@ export default function Home() {
         <div className="flex flex-col gap-2">
           <span className="text-xs text-gray-500 uppercase tracking-widest">Standard</span>
           <div className="border border-gray-800 rounded-lg p-4 flex flex-col gap-4" suppressHydrationWarning>
+            {/* Number of rolls */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs text-gray-400 uppercase tracking-widest">
+                Number of rolls
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={99}
+                value={numRolls}
+                onChange={(e) => setNumRolls(Math.max(1, parseInt(e.target.value) || 1))}
+                onKeyDown={handleKeyDown}
+                className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-100 text-lg w-full focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+              />
+            </div>
+
             {/* Number of dice */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs text-gray-400 uppercase tracking-widest">
@@ -315,6 +364,13 @@ export default function Home() {
           </div>
         </div>
 
+        {error && (
+          <p className="text-red-400 text-xs text-center">{error}</p>
+        )}
+      </aside>
+
+      {/* ── Presets column ── */}
+      <section className="w-48 shrink-0 border-r border-gray-800 bg-gray-900 flex flex-col p-6 gap-6 overflow-y-auto">
         {/* Special group */}
         <div className="flex flex-col gap-2">
           <span className="text-xs text-gray-500 uppercase tracking-widest">Special</span>
@@ -336,13 +392,6 @@ export default function Home() {
           </div>
         </div>
 
-        {error && (
-          <p className="text-red-400 text-xs text-center">{error}</p>
-        )}
-      </aside>
-
-      {/* ── Presets column ── */}
-      <section className="w-48 shrink-0 border-r border-gray-800 bg-gray-900 flex flex-col p-6 gap-6 overflow-y-auto">
         <span className="text-xs text-gray-500 uppercase tracking-widest">Presets</span>
         <div className="border border-gray-800 rounded-lg p-4 flex flex-col gap-2">
           {/* OSR Stats */}
@@ -361,7 +410,7 @@ export default function Home() {
               onClick={() =>
                 deleteMode
                   ? handleDeletePreset(preset.name)
-                  : applyPresetRoll(preset.settings)
+                  : applyPresetRoll(preset.settings, preset.name, numRolls)
               }
               disabled={loading && !deleteMode}
               className={`w-full py-2.5 rounded font-bold uppercase tracking-widest transition-colors text-sm ${
@@ -431,7 +480,7 @@ export default function Home() {
                       isLatest ? "text-amber-400" : "text-gray-400"
                     }`}
                   >
-                    {entry.notation}
+                    {entry.label}
                   </span>
                   <span className="text-xs text-gray-600">{entry.timestamp}</span>
                 </div>
