@@ -1,3 +1,6 @@
+import json
+import os
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
@@ -5,6 +8,55 @@ from traveller.dice import roll_dice, roll_digit_dice
 
 app = Flask(__name__)
 CORS(app)
+
+PRESETS_FILE = os.path.join(os.path.dirname(__file__), "presets.dat")
+
+
+def load_presets():
+    if not os.path.exists(PRESETS_FILE):
+        return []
+    try:
+        with open(PRESETS_FILE) as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return []
+
+
+def save_presets(presets):
+    with open(PRESETS_FILE, "w") as f:
+        json.dump(presets, f)
+
+
+@app.route("/api/presets", methods=["GET"])
+def get_presets():
+    return jsonify({"presets": load_presets()})
+
+
+@app.route("/api/presets", methods=["POST"])
+def add_preset():
+    data = request.get_json()
+    name = (data.get("name") or "").strip()
+    settings = data.get("settings")
+    if not name or not settings:
+        return jsonify({"error": "name and settings required"}), 400
+    if len(name) > 15:
+        return jsonify({"error": "name must be 15 characters or less"}), 400
+    presets = load_presets()
+    if any(p["name"] == name for p in presets):
+        return jsonify({"error": "a preset with that name already exists"}), 400
+    presets.append({"name": name, "settings": settings})
+    save_presets(presets)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/presets/<name>", methods=["DELETE"])
+def delete_preset(name):
+    presets = load_presets()
+    new_presets = [p for p in presets if p["name"] != name]
+    if len(new_presets) == len(presets):
+        return jsonify({"error": "preset not found"}), 404
+    save_presets(new_presets)
+    return jsonify({"ok": True})
 
 
 @app.route("/api/roll", methods=["POST"])

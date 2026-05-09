@@ -6,6 +6,19 @@ const SIDES_OPTIONS = [4, 6, 8, 10, 12, 20, 30, 100] as const;
 
 type AdvantageMode = "disadvantage" | "normal" | "advantage";
 
+interface PresetSettings {
+  numDice: number;
+  sides: number;
+  modifier: string;
+  dropLowest: boolean;
+  advantage: AdvantageMode;
+}
+
+interface Preset {
+  name: string;
+  settings: PresetSettings;
+}
+
 interface RollEntry {
   id: number;
   notation: string;
@@ -39,35 +52,57 @@ export default function Home() {
   const [history, setHistory] = useState<RollEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [deleteMode, setDeleteMode] = useState(false);
   const historyEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     historyEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history]);
 
-  async function handleRoll() {
+  // Load presets on startup
+  useEffect(() => {
+    fetch("/api/presets")
+      .then((res) => parseJsonOrThrow(res))
+      .then((data) => setPresets(data.presets ?? []))
+      .catch(() => {});
+  }, []);
+
+  function serializeSettings(): PresetSettings {
+    return { numDice, sides, modifier, dropLowest, advantage };
+  }
+
+  async function applyPresetRoll(settings: PresetSettings) {
     setLoading(true);
     setError(null);
-    const mod = modifier !== "" ? parseInt(modifier, 10) : 0;
-
+    const mod = settings.modifier !== "" ? parseInt(settings.modifier, 10) : 0;
     try {
       const res = await fetch("/api/roll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ num_dice: numDice, sides, modifier: mod, drop_lowest: dropLowest, advantage }),
+        body: JSON.stringify({
+          num_dice: settings.numDice,
+          sides: settings.sides,
+          modifier: mod,
+          drop_lowest: settings.dropLowest,
+          advantage: settings.advantage,
+        }),
       });
       const data = await parseJsonOrThrow(res);
       if (!res.ok) throw new Error(data.error ?? "Roll failed");
 
       const rawSum = data.rolls.reduce((a: number, b: number) => a + b, 0);
       const modStr = mod > 0 ? `+${mod}` : mod < 0 ? `${mod}` : "";
-      const advStr = advantage !== "normal" ? ` (${advantage === "advantage" ? "adv" : "dis"})` : "";
+      const advStr =
+        settings.advantage !== "normal"
+          ? ` (${settings.advantage === "advantage" ? "adv" : "dis"})`
+          : "";
 
       setHistory((prev) => [
         ...prev,
         {
           id: Date.now(),
-          notation: `${numDice}d${sides}${modStr}${dropLowest ? " (drop lowest)" : ""}${advStr}`,
+          notation: `${settings.numDice}d${settings.sides}${modStr}${settings.dropLowest ? " (drop lowest)" : ""}${advStr}`,
           rolls: data.rolls,
           rawSum,
           modifier: mod,
@@ -82,6 +117,10 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleRoll() {
+    await applyPresetRoll(serializeSettings());
   }
 
   async function handleRollOSRStats() {
@@ -140,13 +179,45 @@ export default function Home() {
     }
   }
 
+  async function handleAddPreset() {
+    const name = window.prompt("Enter a preset name (15 characters max):");
+    if (!name) return;
+    const trimmed = name.trim().slice(0, 15);
+    if (!trimmed) return;
+    const settings = serializeSettings();
+    try {
+      const res = await fetch("/api/presets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed, settings }),
+      });
+      const data = await parseJsonOrThrow(res);
+      if (!res.ok) throw new Error(data.error ?? "Failed to save preset");
+      setPresets((prev) => [...prev, { name: trimmed, settings }]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    }
+  }
+
+  async function handleDeletePreset(name: string) {
+    try {
+      const res = await fetch(`/api/presets/${encodeURIComponent(name)}`, { method: "DELETE" });
+      const data = await parseJsonOrThrow(res);
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete preset");
+      setPresets((prev) => prev.filter((p) => p.name !== name));
+      setDeleteMode(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    }
+  }
+
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter") handleRoll();
   }
 
   return (
     <div className="flex h-screen overflow-hidden font-mono">
-      {/* ── Left panel: controls ── */}
+      {/* ── Left panel: Standard controls ── */}
       <aside className="w-72 shrink-0 border-r border-gray-800 bg-gray-900 flex flex-col p-6 gap-6 overflow-y-auto">
         <div>
           <h1 className="text-xl font-bold tracking-widest text-amber-400 uppercase">
@@ -272,13 +343,6 @@ export default function Home() {
             >
               d666
             </button>
-            <button
-              onClick={handleRollOSRStats}
-              disabled={loading}
-              className="w-full py-2.5 rounded bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-gray-200 font-bold uppercase tracking-widest transition-colors text-sm"
-            >
-              OSR Stats
-            </button>
           </div>
         </div>
 
@@ -286,6 +350,66 @@ export default function Home() {
           <p className="text-red-400 text-xs text-center">{error}</p>
         )}
       </aside>
+
+      {/* ── Presets column ── */}
+      <section className="w-48 shrink-0 border-r border-gray-800 bg-gray-900 flex flex-col p-6 gap-6 overflow-y-auto">
+        <span className="text-xs text-gray-500 uppercase tracking-widest">Presets</span>
+        <div className="border border-gray-800 rounded-lg p-4 flex flex-col gap-2">
+          {/* OSR Stats */}
+          <button
+            onClick={handleRollOSRStats}
+            disabled={loading}
+            className="w-full py-2.5 rounded bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-gray-200 font-bold uppercase tracking-widest transition-colors text-sm"
+          >
+            OSR Stats
+          </button>
+
+          {/* User presets */}
+          {presets.map((preset) => (
+            <button
+              key={preset.name}
+              onClick={() =>
+                deleteMode
+                  ? handleDeletePreset(preset.name)
+                  : applyPresetRoll(preset.settings)
+              }
+              disabled={loading && !deleteMode}
+              className={`w-full py-2.5 rounded font-bold uppercase tracking-widest transition-colors text-sm ${
+                deleteMode
+                  ? "bg-red-900 hover:bg-red-700 border border-red-700 text-red-200"
+                  : "bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-gray-200"
+              }`}
+            >
+              {preset.name}
+            </button>
+          ))}
+
+          {/* Divider */}
+          <hr className="border-gray-700 my-1" />
+
+          {/* Add / Delete */}
+          <div className="flex gap-2">
+            <button
+              onClick={handleAddPreset}
+              disabled={loading || deleteMode}
+              className="flex-1 py-2 rounded bg-gray-800 hover:bg-gray-700 disabled:opacity-40 text-gray-400 hover:text-gray-200 text-xs font-bold uppercase tracking-widest transition-colors"
+            >
+              Add
+            </button>
+            <button
+              onClick={() => setDeleteMode((d) => !d)}
+              disabled={loading || presets.length === 0}
+              className={`flex-1 py-2 rounded text-xs font-bold uppercase tracking-widest transition-colors ${
+                deleteMode
+                  ? "bg-red-700 hover:bg-red-600 text-white"
+                  : "bg-gray-800 hover:bg-gray-700 disabled:opacity-40 text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              {deleteMode ? "Cancel" : "Delete"}
+            </button>
+          </div>
+        </div>
+      </section>
 
       {/* ── Right panel: ticker tape ── */}
       <main className="flex-1 flex flex-col bg-gray-950 overflow-hidden">
