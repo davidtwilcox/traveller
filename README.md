@@ -4,9 +4,12 @@ Random generator tools for solo [Traveller TTRPG](https://en.wikipedia.org/wiki/
 
 ## Features
 
-- **Dice roller** — roll any combination of dice (`NdS+modifier`), with optional drop-lowest and advantage/disadvantage
-- **Digit dice** — d66 / d666 rolls that combine die results into a multi-digit number (e.g. for tables)
+- **Dice roller** — roll any combination of dice with optional modifier, drop-lowest, and advantage/disadvantage; repeat the same roll multiple times in one click
+- **Wide die type support** — d3, d4, d5, d6, d7, d8, d10, d12, d14, d16, d20, d24, d30, d100
+- **Digit dice** — d66 / d666 rolls that combine die results into a multi-digit number (e.g. for Traveller tables)
 - **OSR stats** — roll 6 sets of 3d6 for character generation
+- **Presets** — save and reload favourite roll configurations (persisted in browser localStorage)
+- **Roll history** — scrollable ticker-tape of every roll made this session
 - Web UI (Next.js frontend + Flask API)
 - Interactive CLI entry point
 
@@ -46,7 +49,7 @@ python -m traveller
 ### Python API
 
 ```python
-from traveller.dice import roll_dice, roll_digit_dice
+from traveller.dice import roll_dice, roll_digit_dice, roll_osr_stats
 
 # Roll 2d6 with a +2 modifier
 rolls, total = roll_dice(2, 6, modifier=2)
@@ -56,6 +59,9 @@ rolls, total = roll_dice(3, 6, drop_lowest=True)
 
 # Roll digit dice — combine results into a number (e.g. 3, 5 → 35)
 rolls, result = roll_digit_dice(2, 6)
+
+# Roll 6 × 3d6 for OSR character stats
+stats = roll_osr_stats()  # list of (rolls, total) tuples
 ```
 
 ### Web App

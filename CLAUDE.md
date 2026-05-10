@@ -39,13 +39,31 @@ traveller-dice
 
 ## Architecture
 
-The package lives under `src/traveller/` (src layout). The entry point `traveller-dice` maps to `traveller.cli:main`.
+### Python package (`src/traveller/`)
 
-- `dice.py` — core logic. `roll_dice(num_dice, sides, modifier)` returns `(rolls, total)`. `roll_osr_stats()` is a thin wrapper for 3d6.
+The entry point `traveller-dice` maps to `traveller.cli:main`.
+
+- `dice.py` — core logic.
+  - `roll_dice(num_dice, sides, modifier, drop_lowest)` — returns `(rolls, total)`.
+  - `roll_digit_dice(num_digits, sides)` — combines rolls into a multi-digit number (e.g. `[3,5]` → `35`). Sides must be 2–9.
+  - `roll_osr_stats()` — rolls 6 × 3d6 for character generation.
 - `cli.py` — interactive CLI that calls `roll_dice` and prints results.
 - `__main__.py` — allows `python -m traveller` invocation.
 
 New game mechanics should be added as functions in `dice.py` (or new modules under `src/traveller/`) and exposed through `cli.py` as needed.
+
+### Web app (`web/`)
+
+- `web/api/app.py` — Flask REST API. Routes:
+  - `POST /api/roll` — standard roll; accepts `num_dice`, `sides`, `modifier`, `drop_lowest`, `advantage` (`"normal"` / `"advantage"` / `"disadvantage"`).
+  - `POST /api/roll-d66` — 2-digit dice.
+  - `POST /api/roll-d666` — 3-digit dice.
+  - `POST /api/roll-osr-stats` — returns 6 stat arrays.
+- `web/frontend/` — Next.js 15 / React 19 / TypeScript / Tailwind CSS frontend.
+  - `src/app/page.tsx` — single-page UI with three panels: roll controls (left), presets & special rolls (middle), scrollable roll history / ticker tape (right).
+  - Die types available: d3, d4, d5, d6, d7, d8, d10, d12, d14, d16, d20, d24, d30, d100.
+  - Presets are persisted to `localStorage` under the key `traveller-presets` (max 15 presets).
+  - The frontend proxies `/api/*` to the Flask server at port 5000 (configured in `next.config.mjs`).
 
 ## Linting
 
