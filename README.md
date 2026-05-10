@@ -9,7 +9,8 @@ Random generator tools for solo [Traveller TTRPG](https://en.wikipedia.org/wiki/
 - **Digit dice** — d66 / d666 rolls that combine die results into a multi-digit number (e.g. for Traveller tables)
 - **OSR stats** — roll 6 sets of 3d6 for character generation
 - **Presets** — save and reload favourite roll configurations (persisted in browser localStorage)
-- **Roll history** — scrollable ticker-tape of every roll made this session
+- **Card deck** — draw from a standard 52-card deck (optionally with 2 jokers); deck state persists across draws and auto-resets when exhausted
+- **Roll/draw history** — scrollable ticker-tape of every roll and card draw made this session
 - Web UI (Next.js frontend + Flask API)
 - Interactive CLI entry point
 
@@ -50,6 +51,7 @@ python -m traveller
 
 ```python
 from traveller.dice import roll_dice, roll_digit_dice, roll_osr_stats
+from traveller.cards import new_deck, draw_card
 
 # Roll 2d6 with a +2 modifier
 rolls, total = roll_dice(2, 6, modifier=2)
@@ -62,6 +64,11 @@ rolls, result = roll_digit_dice(2, 6)
 
 # Roll 6 × 3d6 for OSR character stats
 stats = roll_osr_stats()  # list of (rolls, total) tuples
+
+# Draw cards from a shuffled deck
+deck = new_deck()                        # 52 cards
+deck = new_deck(include_jokers=True)     # 54 cards
+card, deck = draw_card(deck)             # {"suit": "Hearts", "rank": "Ace"}, remaining deck
 ```
 
 ### Web App
@@ -85,6 +92,13 @@ npm run dev            # runs on http://localhost:3000
 ```
 
 Open http://localhost:3000 in your browser. The frontend proxies all `/api/*` requests to the Flask server at port 5000, so both processes must be running.
+
+The web UI is organised into two tabs:
+
+- **Dice** — standard roll controls (number of rolls, die type, modifier, drop-lowest, advantage) alongside special rolls (d66, d666) and user presets
+- **Cards** — draw one or more cards from the persistent deck; optionally include 2 jokers; reset the deck at any time
+
+All rolls and card draws are recorded in the **History** panel on the right.
 
 ## Development
 
