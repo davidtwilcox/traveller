@@ -219,3 +219,4 @@ node_modules/
 
 # Persistent deck state
 web/api/deck.json
+web/api/oracle_deck.json

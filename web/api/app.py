@@ -11,6 +11,7 @@ app = Flask(__name__)
 CORS(app)
 
 DECK_FILE = Path(__file__).parent / "deck.json"
+ORACLE_DECK_FILE = Path(__file__).parent / "oracle_deck.json"
 
 
 def _load_state() -> dict:
@@ -31,6 +32,24 @@ def _load_state() -> dict:
 
 def _save_state(state: dict) -> None:
     DECK_FILE.write_text(json.dumps(state))
+
+
+def _load_oracle_state() -> dict:
+    """Return {"cards": [...]} for the oracle/generator deck. Creates a fresh deck if none exists."""
+    if ORACLE_DECK_FILE.exists():
+        try:
+            data = json.loads(ORACLE_DECK_FILE.read_text())
+            if isinstance(data, dict) and "cards" in data:
+                return data
+        except Exception:
+            pass
+    state = {"cards": new_deck()}
+    _save_oracle_state(state)
+    return state
+
+
+def _save_oracle_state(state: dict) -> None:
+    ORACLE_DECK_FILE.write_text(json.dumps(state))
 
 
 @app.route("/api/roll", methods=["POST"])
@@ -84,6 +103,26 @@ def roll_osr_stats():
         rolls, total = roll_dice(3, 6)
         stats.append({"rolls": rolls, "total": total})
     return jsonify({"stats": stats})
+
+
+@app.route("/api/oracle-deck/draw", methods=["POST"])
+def oracle_deck_draw():
+    data = request.get_json() or {}
+    count = max(1, int(data.get("count", 1)))
+    state = _load_oracle_state()
+    deck = state["cards"]
+    deck_was_reset = False
+    cards_drawn = []
+
+    for _ in range(count):
+        if not deck:
+            deck = new_deck()
+            deck_was_reset = True
+        card, deck = draw_card(deck)
+        cards_drawn.append(card)
+
+    _save_oracle_state({"cards": deck})
+    return jsonify({"cards": cards_drawn, "remaining": len(deck), "deck_was_reset": deck_was_reset})
 
 
 @app.route("/api/deck/status", methods=["GET"])

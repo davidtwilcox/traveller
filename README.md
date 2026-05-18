@@ -8,9 +8,11 @@ Random generator tools for solo [Traveller TTRPG](https://en.wikipedia.org/wiki/
 - **Wide die type support** — d3, d4, d5, d6, d7, d8, d10, d12, d14, d16, d20, d24, d30, d100
 - **Digit dice** — d66 / d666 rolls that combine die results into a multi-digit number (e.g. for Traveller tables)
 - **OSR stats** — roll 6 sets of 3d6 for character generation
-- **Presets** — save and reload favourite roll configurations (persisted in browser localStorage)
+- **Presets** — save and reload favourite roll configurations including number of rolls (persisted in browser localStorage)
 - **Card deck** — draw from a standard 52-card deck (optionally with 2 jokers); deck state persists across draws and auto-resets when exhausted
-- **Roll/draw history** — scrollable ticker-tape of every roll and card draw made this session
+- **Oracle** — yes/no questions with configurable odds; quality ratings; focus draws (action, detail, topic, random event) using a dedicated card deck; GM moves (pacing, failure)
+- **Generators** — plot hooks, NPCs, dungeon crawler themes and areas, hex crawler current hex and random events
+- **History** — scrollable ticker-tape of every roll, draw, oracle result, and generated entry made this session
 - Web UI (Next.js frontend + Flask API)
 - Interactive CLI entry point
 
@@ -93,12 +95,16 @@ npm run dev            # runs on http://localhost:3000
 
 Open http://localhost:3000 in your browser. The frontend proxies all `/api/*` requests to the Flask server at port 5000, so both processes must be running.
 
-The web UI is organised into two tabs:
+The web UI is organised into four tabs:
 
 - **Dice** — standard roll controls (number of rolls, die type, modifier, drop-lowest, advantage) alongside special rolls (d66, d666) and user presets
 - **Cards** — draw one or more cards from the persistent deck; optionally include 2 jokers; reset the deck at any time
+- **Oracle** — yes/no answers with Likely/Even/Unlikely odds; quality ratings (How); Focus draws (Action, Detail, Topic, Random Event) that interpret card rank and suit domain; GM Moves (Pacing, Failure) for solo play structure
+- **Generator** — one-click generators for plot hooks, NPCs, dungeon crawler themes and areas, and hex crawler events; card-based results include the suit domain for narrative context
 
-All rolls and card draws are recorded in the **History** panel on the right.
+All results are recorded in the **History** panel on the right. The Oracle and Generator tabs share a dedicated 52-card deck (no jokers) that is separate from the Cards tab deck.
+
+> The Oracle and Generator rules are based on the [One Page Solo Engine](https://inflatablestudios.itch.io/one-page-solo-engine) by Inflatable Studios.
 
 ## Development
 
