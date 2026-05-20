@@ -98,6 +98,7 @@ interface PresetSettings {
   modifier: string;
   dropLowest: boolean;
   advantage: AdvantageMode;
+  digitDice?: boolean;
 }
 
 interface Preset {
@@ -164,6 +165,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [deleteMode, setDeleteMode] = useState(false);
+  const [digitDice, setDigitDice] = useState(false);
   const [cardsRemaining, setCardsRemaining] = useState<number | null>(null);
   const [includeJokers, setIncludeJokers] = useState(false);
   const [oracleOdds, setOracleOdds] = useState<OracleOdds>("even");
@@ -197,13 +199,19 @@ export default function Home() {
     }
   }, [cardsRemaining]);
 
+  const digitDiceDisabled = sides > 9 || numDice < 2;
+
+  useEffect(() => {
+    if (digitDiceDisabled) setDigitDice(false);
+  }, [digitDiceDisabled]);
+
   function savePresetsToStorage(updated: Preset[]) {
     localStorage.setItem("traveller-presets", JSON.stringify(updated));
     setPresets(updated);
   }
 
   function serializeSettings(): PresetSettings {
-    return { numRolls, numDice, sides, modifier, dropLowest, advantage };
+    return { numRolls, numDice, sides, modifier, dropLowest, advantage, digitDice };
   }
 
   async function rollOnce(settings: PresetSettings): Promise<{ rolls: number[]; total: number; otherRolls?: number[]; otherTotal?: number }> {
@@ -225,6 +233,11 @@ export default function Home() {
   }
 
   async function applyPresetRoll(settings: PresetSettings, label?: string, count = 1) {
+    if (settings.digitDice) {
+      const notation = `${settings.numDice}d${settings.sides} (digit)`;
+      await handleDigitRoll(settings.numDice, settings.sides, label ?? notation, count);
+      return;
+    }
     setLoading(true);
     setError(null);
     const mod = settings.modifier !== "" ? parseInt(settings.modifier, 10) : 0;
@@ -283,7 +296,12 @@ export default function Home() {
   }
 
   async function handleRoll() {
-    await applyPresetRoll(serializeSettings(), undefined, numRolls);
+    if (digitDice) {
+      const notation = `${numDice}d${sides} (digit)`;
+      await handleDigitRoll(numDice, sides, notation, numRolls);
+    } else {
+      await applyPresetRoll(serializeSettings(), undefined, numRolls);
+    }
   }
 
   async function handleRollOSRStats() {
@@ -315,28 +333,34 @@ export default function Home() {
     }
   }
 
-  async function handleRollDigit(notation: string, endpoint: string) {
+  async function handleDigitRoll(numDice: number, sides: number, label: string, count = 1) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(endpoint, { method: "POST" });
-      const data = await parseJsonOrThrow(res);
-      if (!res.ok) throw new Error(data.error ?? "Roll failed");
-
-      setHistory((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          label: notation,
-          notation,
-          rolls: data.rolls,
-          rawSum: 0,
-          modifier: 0,
-          total: data.total,
-          timestamp: new Date().toLocaleTimeString(),
-          isDigit: true,
-        },
-      ]);
+      for (let i = 0; i < count; i++) {
+        const res = await fetch("/api/roll", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ num_dice: numDice, sides, modifier: 0, drop_lowest: false, advantage: "normal" }),
+        });
+        const data = await parseJsonOrThrow(res);
+        if (!res.ok) throw new Error(data.error ?? "Roll failed");
+        const total = parseInt((data.rolls as number[]).join(""), 10);
+        setHistory((prev) => [
+          ...prev,
+          {
+            id: Date.now() + i,
+            label,
+            notation: label,
+            rolls: data.rolls,
+            rawSum: 0,
+            modifier: 0,
+            total,
+            timestamp: new Date().toLocaleTimeString(),
+            isDigit: true,
+          },
+        ]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -1015,23 +1039,40 @@ export default function Home() {
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs text-gray-400 uppercase tracking-widest">Die type</label>
                     <div className="grid grid-cols-4 gap-2">
-                      {SIDES_OPTIONS.map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => setSides(s)}
-                          className={`rounded px-2 py-2 text-sm font-bold transition-colors ${
-                            sides === s
-                              ? "bg-amber-500 text-gray-900"
-                              : "bg-gray-800 text-gray-300 border border-gray-700 hover:border-amber-600 hover:text-amber-400"
-                          }`}
-                        >
-                          d{s}
-                        </button>
-                      ))}
+                      {SIDES_OPTIONS.map((s) => {
+                        const disabledByDigit = digitDice && s > 9;
+                        return (
+                          <button
+                            key={s}
+                            onClick={() => { if (!disabledByDigit) setSides(s); }}
+                            disabled={disabledByDigit}
+                            className={`rounded px-2 py-2 text-sm font-bold transition-colors ${
+                              sides === s
+                                ? "bg-amber-500 text-gray-900"
+                                : disabledByDigit
+                                ? "bg-gray-800 text-gray-700 border border-gray-800 cursor-not-allowed"
+                                : "bg-gray-800 text-gray-300 border border-gray-700 hover:border-amber-600 hover:text-amber-400"
+                            }`}
+                          >
+                            d{s}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  <div className="flex flex-col gap-1.5">
+                  <label className={`flex items-center gap-3 select-none ${digitDiceDisabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}>
+                    <input
+                      type="checkbox"
+                      checked={digitDice}
+                      onChange={(e) => setDigitDice(e.target.checked)}
+                      disabled={digitDiceDisabled}
+                      className="w-4 h-4 accent-amber-500 disabled:cursor-not-allowed cursor-pointer"
+                    />
+                    <span className="text-xs text-gray-400 uppercase tracking-widest">Digit dice</span>
+                  </label>
+
+                  <div className={`flex flex-col gap-1.5 ${digitDice ? "opacity-40 pointer-events-none" : ""}`}>
                     <label className="text-xs text-gray-400 uppercase tracking-widest">Modifier (optional)</label>
                     <input
                       type="number"
@@ -1039,28 +1080,30 @@ export default function Home() {
                       onChange={(e) => setModifier(e.target.value)}
                       onKeyDown={handleKeyDown}
                       placeholder="0"
-                      className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-100 text-lg w-full focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 placeholder-gray-600"
+                      disabled={digitDice}
+                      className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-100 text-lg w-full focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 placeholder-gray-600 disabled:cursor-not-allowed"
                     />
                   </div>
 
-                  <label className={`flex items-center gap-3 select-none ${numDice === 1 ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}>
+                  <label className={`flex items-center gap-3 select-none ${numDice === 1 || digitDice ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}>
                     <input
                       type="checkbox"
                       checked={dropLowest}
                       onChange={(e) => setDropLowest(e.target.checked)}
-                      disabled={numDice === 1}
+                      disabled={numDice === 1 || digitDice}
                       className="w-4 h-4 accent-amber-500 disabled:cursor-not-allowed cursor-pointer"
                     />
                     <span className="text-xs text-gray-400 uppercase tracking-widest">Drop lowest die</span>
                   </label>
 
-                  <div className="flex flex-col gap-1.5">
+                  <div className={`flex flex-col gap-1.5 ${digitDice ? "opacity-40 pointer-events-none" : ""}`}>
                     <span className="text-xs text-gray-400 uppercase tracking-widest">Advantage</span>
                     <div className="flex rounded overflow-hidden border border-gray-700">
                       {(["disadvantage", "normal", "advantage"] as AdvantageMode[]).map((mode) => (
                         <button
                           key={mode}
                           onClick={() => setAdvantage(mode)}
+                          disabled={digitDice}
                           className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors ${
                             advantage === mode
                               ? "bg-amber-500 text-gray-900"
@@ -1091,14 +1134,14 @@ export default function Home() {
                 <span className="text-xs text-gray-500 uppercase tracking-widest">Special</span>
                 <div className="border border-gray-800 rounded-lg p-4 flex flex-col gap-2">
                   <button
-                    onClick={() => handleRollDigit("d66", "/api/roll-d66")}
+                    onClick={() => handleDigitRoll(2, 6, "d66")}
                     disabled={loading}
                     className="w-full py-2.5 rounded bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-gray-200 font-bold uppercase tracking-widest transition-colors text-sm"
                   >
                     d66
                   </button>
                   <button
-                    onClick={() => handleRollDigit("d666", "/api/roll-d666")}
+                    onClick={() => handleDigitRoll(3, 6, "d666")}
                     disabled={loading}
                     className="w-full py-2.5 rounded bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 disabled:text-gray-600 text-gray-200 font-bold uppercase tracking-widest transition-colors text-sm"
                   >
