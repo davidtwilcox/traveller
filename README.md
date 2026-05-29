@@ -5,7 +5,7 @@ Random generator tools for solo [Traveller TTRPG](https://en.wikipedia.org/wiki/
 ## Features
 
 - **Dice roller** — roll any combination of dice with optional modifier, drop-lowest, and advantage/disadvantage; repeat the same roll multiple times in one click
-- **Wide die type support** — d3, d4, d5, d6, d7, d8, d10, d12, d14, d16, d20, d24, d30, d100
+- **Wide die type support** — d3, d4, d5, d6, d7, d8, d10, d12, d14, d16, d20, d24, d30, d60, d100, d1000
 - **Digit dice** — d66 / d666 rolls that combine die results into a multi-digit number (e.g. for Traveller tables)
 - **OSR stats** — roll 6 sets of 3d6 for character generation
 - **Presets** — save and reload favourite roll configurations including number of rolls (persisted in browser localStorage)
@@ -75,7 +75,17 @@ card, deck = draw_card(deck)             # {"suit": "Hearts", "rank": "Ace"}, re
 
 ### Web App
 
-The web UI consists of a Flask API backend and a Next.js frontend.
+#### Docker (recommended)
+
+Requires [Docker](https://docs.docker.com/get-docker/) with the Compose plugin.
+
+```bash
+docker compose up --build
+```
+
+Open http://localhost:3000. The `--build` flag is only needed on the first run or after code changes.
+
+#### Manual
 
 **Backend** (requires Python with `flask` and `flask-cors`):
 

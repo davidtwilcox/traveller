@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const SIDES_OPTIONS = [3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 30, 100] as const;
+const SIDES_OPTIONS = [3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 30, 60, 100, 1000] as const;
 
 const SUIT_SYMBOLS: Record<string, string> = {
   Hearts: "♥",
