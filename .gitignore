@@ -216,6 +216,7 @@ uv.lock
 # Node / Next.js
 node_modules/
 .next/
+*.tsbuildinfo
 
 # Persistent deck state
 web/api/deck.json
