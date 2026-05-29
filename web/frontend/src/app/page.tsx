@@ -1046,7 +1046,7 @@ export default function Home() {
                             key={s}
                             onClick={() => { if (!disabledByDigit) setSides(s); }}
                             disabled={disabledByDigit}
-                            className={`rounded px-2 py-2 text-sm font-bold transition-colors ${
+                            className={`rounded px-2 py-2 ${s >= 1000 ? "text-xs" : "text-sm"} font-bold transition-colors ${
                               sides === s
                                 ? "bg-amber-500 text-gray-900"
                                 : disabledByDigit
