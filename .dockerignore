@@ -1,0 +1,12 @@
+.git
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+.tox
+.ruff_cache
+web/frontend/.next
+web/frontend/node_modules
+web/api/deck.json
+web/api/oracle_deck.json
