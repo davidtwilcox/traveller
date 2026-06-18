@@ -14,6 +14,8 @@ def main() -> None:
         raise SystemExit(f"Invalid input: {exc}") from exc
 
     rolls, total = roll_dice(num_dice, sides, modifier)
-    mod_text = f"{modifier:+d}" if modifier else "0"
     print(f"Rolls: {rolls}")
-    print(f"Total: {sum(rolls)} {mod_text} = {total}")
+    if modifier:
+        print(f"Total: {sum(rolls)} {modifier:+d} = {total}")
+    else:
+        print(f"Total: {total}")

@@ -1,4 +1,5 @@
 import json
+import threading
 from pathlib import Path
 
 from flask import Flask, jsonify, request
@@ -12,6 +13,8 @@ CORS(app)
 
 DECK_FILE = Path(__file__).parent / "deck.json"
 ORACLE_DECK_FILE = Path(__file__).parent / "oracle_deck.json"
+_deck_lock = threading.Lock()
+_oracle_deck_lock = threading.Lock()
 
 
 def _load_state() -> dict:
@@ -35,7 +38,7 @@ def _save_state(state: dict) -> None:
 
 
 def _load_oracle_state() -> dict:
-    """Return {"cards": [...]} for the oracle/generator deck. Creates a fresh deck if none exists."""
+    """Return oracle/generator deck state. Creates a fresh deck if none exists."""
     if ORACLE_DECK_FILE.exists():
         try:
             data = json.loads(ORACLE_DECK_FILE.read_text())
@@ -71,9 +74,24 @@ def roll():
                 rolls, total, other_rolls, other_total = rolls_a, total_a, rolls_b, total_b
             else:
                 rolls, total, other_rolls, other_total = rolls_b, total_b, rolls_a, total_a
-            return jsonify({"rolls": rolls, "total": total, "other_rolls": other_rolls, "other_total": other_total})
+            return jsonify({
+                "rolls": rolls, "total": total,
+                "other_rolls": other_rolls, "other_total": other_total,
+            })
 
         return jsonify({"rolls": rolls_a, "total": total_a})
+    except (ValueError, KeyError) as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
+@app.route("/api/roll-digit", methods=["POST"])
+def roll_digit():
+    data = request.get_json()
+    try:
+        num_digits = int(data["num_digits"])
+        sides = int(data["sides"])
+        rolls, total = roll_digit_dice(num_digits, sides)
+        return jsonify({"rolls": rolls, "total": total})
     except (ValueError, KeyError) as exc:
         return jsonify({"error": str(exc)}), 400
 
@@ -108,57 +126,67 @@ def roll_osr_stats():
 @app.route("/api/oracle-deck/draw", methods=["POST"])
 def oracle_deck_draw():
     data = request.get_json() or {}
-    count = max(1, int(data.get("count", 1)))
-    state = _load_oracle_state()
-    deck = state["cards"]
-    deck_was_reset = False
-    cards_drawn = []
+    try:
+        count = max(1, int(data.get("count", 1)))
+    except (ValueError, TypeError):
+        return jsonify({"error": "count must be a number"}), 400
+    with _oracle_deck_lock:
+        state = _load_oracle_state()
+        deck = state["cards"]
+        deck_was_reset = False
+        cards_drawn = []
 
-    for _ in range(count):
-        if not deck:
-            deck = new_deck()
-            deck_was_reset = True
-        card, deck = draw_card(deck)
-        cards_drawn.append(card)
+        for _ in range(count):
+            if not deck:
+                deck = new_deck()
+                deck_was_reset = True
+            card, deck = draw_card(deck)
+            cards_drawn.append(card)
 
-    _save_oracle_state({"cards": deck})
+        _save_oracle_state({"cards": deck})
     return jsonify({"cards": cards_drawn, "remaining": len(deck), "deck_was_reset": deck_was_reset})
 
 
 @app.route("/api/deck/status", methods=["GET"])
 def deck_status():
-    state = _load_state()
+    with _deck_lock:
+        state = _load_state()
     return jsonify({"remaining": len(state["cards"]), "include_jokers": state["include_jokers"]})
 
 
 @app.route("/api/deck/draw", methods=["POST"])
 def deck_draw():
     data = request.get_json() or {}
-    count = max(1, int(data.get("count", 1)))
-    state = _load_state()
-    deck = state["cards"]
-    include_jokers = state["include_jokers"]
-    deck_was_reset = False
-    cards_drawn = []
+    try:
+        count = max(1, int(data.get("count", 1)))
+    except (ValueError, TypeError):
+        return jsonify({"error": "count must be a number"}), 400
+    with _deck_lock:
+        state = _load_state()
+        deck = state["cards"]
+        include_jokers = state["include_jokers"]
+        deck_was_reset = False
+        cards_drawn = []
 
-    for _ in range(count):
-        if not deck:
-            deck = new_deck(include_jokers=include_jokers)
-            deck_was_reset = True
-        card, deck = draw_card(deck)
-        cards_drawn.append(card)
+        for _ in range(count):
+            if not deck:
+                deck = new_deck(include_jokers=include_jokers)
+                deck_was_reset = True
+            card, deck = draw_card(deck)
+            cards_drawn.append(card)
 
-    _save_state({"cards": deck, "include_jokers": include_jokers})
+        _save_state({"cards": deck, "include_jokers": include_jokers})
     return jsonify({"cards": cards_drawn, "remaining": len(deck), "deck_was_reset": deck_was_reset})
 
 
 @app.route("/api/deck/reset", methods=["POST"])
 def deck_reset():
     data = request.get_json() or {}
-    state = _load_state()
-    include_jokers = bool(data.get("include_jokers", state["include_jokers"]))
-    deck = new_deck(include_jokers=include_jokers)
-    _save_state({"cards": deck, "include_jokers": include_jokers})
+    with _deck_lock:
+        state = _load_state()
+        include_jokers = bool(data.get("include_jokers", state["include_jokers"]))
+        deck = new_deck(include_jokers=include_jokers)
+        _save_state({"cards": deck, "include_jokers": include_jokers})
     return jsonify({"remaining": len(deck), "include_jokers": include_jokers})
 
 
