@@ -55,4 +55,3 @@ def test_roll_digit_dice_three_digits():
 def test_roll_digit_dice_rejects_invalid_inputs(num_digits, sides):
     with pytest.raises(ValueError):
         roll_digit_dice(num_digits, sides)
-

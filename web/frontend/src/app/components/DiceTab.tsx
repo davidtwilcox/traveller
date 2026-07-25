@@ -223,7 +223,7 @@ export default function DiceTab({ loading, setLoading, setError, addHistoryEntry
                 min={1}
                 max={99}
                 value={numRolls}
-                onChange={(e) => setNumRolls(Math.max(1, parseInt(e.target.value) || 1))}
+                onChange={(e) => setNumRolls(Math.min(99, Math.max(1, parseInt(e.target.value) || 1)))}
                 onKeyDown={handleKeyDown}
                 className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-100 text-lg w-full focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
               />
@@ -237,7 +237,7 @@ export default function DiceTab({ loading, setLoading, setError, addHistoryEntry
                 max={99}
                 value={numDice}
                 onChange={(e) => {
-                  const n = Math.max(1, parseInt(e.target.value) || 1);
+                  const n = Math.min(99, Math.max(1, parseInt(e.target.value) || 1));
                   setNumDice(n);
                   if (n === 1) setDropLowest(false);
                 }}

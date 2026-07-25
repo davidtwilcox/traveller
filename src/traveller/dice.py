@@ -1,10 +1,9 @@
 import random
-from typing import List, Tuple
 
 
 def roll_dice(
     num_dice: int, sides: int, modifier: int = 0, drop_lowest: bool = False
-) -> Tuple[List[int], int]:
+) -> tuple[list[int], int]:
     if num_dice <= 0:
         raise ValueError("num_dice must be greater than 0")
     if sides <= 1:
@@ -18,7 +17,7 @@ def roll_dice(
     return rolls, total
 
 
-def roll_digit_dice(num_digits: int, sides: int) -> Tuple[List[int], int]:
+def roll_digit_dice(num_digits: int, sides: int) -> tuple[list[int], int]:
     if num_digits < 2:
         raise ValueError("num_digits must be at least 2")
     if sides < 2:

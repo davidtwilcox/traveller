@@ -74,10 +74,14 @@ def roll():
                 rolls, total, other_rolls, other_total = rolls_a, total_a, rolls_b, total_b
             else:
                 rolls, total, other_rolls, other_total = rolls_b, total_b, rolls_a, total_a
-            return jsonify({
-                "rolls": rolls, "total": total,
-                "other_rolls": other_rolls, "other_total": other_total,
-            })
+            return jsonify(
+                {
+                    "rolls": rolls,
+                    "total": total,
+                    "other_rolls": other_rolls,
+                    "other_total": other_total,
+                }
+            )
 
         return jsonify({"rolls": rolls_a, "total": total_a})
     except (ValueError, KeyError) as exc:
