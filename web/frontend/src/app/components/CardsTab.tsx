@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { RollEntry } from "../types";
+import type { DeckType, RollEntry } from "../types";
 import { parseJsonOrThrow } from "../api";
 
 interface CardsTabProps {
@@ -15,6 +15,7 @@ export default function CardsTab({ loading, setLoading, setError, addHistoryEntr
   const [numCards, setNumCards] = useState(1);
   const [cardsRemaining, setCardsRemaining] = useState<number | null>(null);
   const [includeJokers, setIncludeJokers] = useState(false);
+  const [deckType, setDeckType] = useState<DeckType>("standard");
 
   useEffect(() => {
     fetch("/api/deck/status")
@@ -22,6 +23,7 @@ export default function CardsTab({ loading, setLoading, setError, addHistoryEntr
       .then((d) => {
         setCardsRemaining(d.remaining);
         setIncludeJokers(d.include_jokers ?? false);
+        setDeckType(d.deck_type ?? "standard");
       })
       .catch(() => {});
   }, []);
@@ -32,7 +34,7 @@ export default function CardsTab({ loading, setLoading, setError, addHistoryEntr
     }
   }, [cardsRemaining]);
 
-  const deckSize = includeJokers ? 54 : 52;
+  const deckSize = deckType === "tarot" ? 78 : includeJokers ? 54 : 52;
   const cardMax = cardsRemaining || deckSize;
 
   async function handleDrawCard() {
@@ -65,6 +67,7 @@ export default function CardsTab({ loading, setLoading, setError, addHistoryEntr
         cards: drawnCards,
         cardsRemaining: data.remaining,
         deckWasReset: data.deck_was_reset,
+        deckType: data.deck_type,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -80,7 +83,7 @@ export default function CardsTab({ loading, setLoading, setError, addHistoryEntr
       const res = await fetch("/api/deck/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ include_jokers: includeJokers }),
+        body: JSON.stringify({ deck_type: deckType, include_jokers: includeJokers }),
       });
       const data = await parseJsonOrThrow(res);
       if (!res.ok) throw new Error(data.error ?? "Reset failed");
@@ -101,12 +104,39 @@ export default function CardsTab({ loading, setLoading, setError, addHistoryEntr
       const res = await fetch("/api/deck/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ include_jokers: checked }),
+        body: JSON.stringify({ deck_type: deckType, include_jokers: checked }),
       });
       const data = await parseJsonOrThrow(res);
       if (!res.ok) throw new Error(data.error ?? "Reset failed");
       setCardsRemaining(data.remaining);
       setIncludeJokers(data.include_jokers);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSetDeckType(newDeckType: DeckType) {
+    if (newDeckType === deckType) return;
+    const label = newDeckType === "tarot" ? "Tarot" : "Standard";
+    if (!window.confirm(`This will reset and reshuffle the deck to switch to the ${label} deck. Continue?`)) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const nextIncludeJokers = newDeckType === "tarot" ? false : includeJokers;
+      const res = await fetch("/api/deck/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deck_type: newDeckType, include_jokers: nextIncludeJokers }),
+      });
+      const data = await parseJsonOrThrow(res);
+      if (!res.ok) throw new Error(data.error ?? "Reset failed");
+      setCardsRemaining(data.remaining);
+      setIncludeJokers(data.include_jokers);
+      setDeckType(data.deck_type);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -124,6 +154,26 @@ export default function CardsTab({ loading, setLoading, setError, addHistoryEntr
           )}
         </div>
         <div className="border border-gray-800 rounded-lg p-4 flex flex-col gap-4" suppressHydrationWarning>
+
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs text-gray-400 uppercase tracking-widest">Deck</span>
+            <div className="flex rounded overflow-hidden border border-gray-700">
+              {(["standard", "tarot"] as DeckType[]).map((type) => (
+                <button
+                  key={type}
+                  onClick={() => handleSetDeckType(type)}
+                  disabled={loading}
+                  className={`flex-1 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors disabled:cursor-not-allowed ${
+                    deckType === type
+                      ? "bg-amber-500 text-gray-900"
+                      : "bg-gray-800 text-gray-400 hover:text-gray-200"
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs text-gray-400 uppercase tracking-widest">Number of cards</label>
@@ -144,7 +194,7 @@ export default function CardsTab({ loading, setLoading, setError, addHistoryEntr
               type="checkbox"
               checked={includeJokers}
               onChange={(e) => handleToggleJokers(e.target.checked)}
-              disabled={loading}
+              disabled={loading || deckType === "tarot"}
               className="w-4 h-4 accent-amber-500 disabled:cursor-not-allowed cursor-pointer"
             />
             <span className="text-xs text-gray-400 uppercase tracking-widest">Include jokers</span>

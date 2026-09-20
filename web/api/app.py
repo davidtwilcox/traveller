@@ -6,7 +6,7 @@ import yaml
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
-from traveller.cards import draw_card, new_deck
+from traveller.cards import draw_card, new_deck, new_tarot_deck
 from traveller.dice import roll_dice, roll_digit_dice
 
 app = Flask(__name__)
@@ -15,22 +15,33 @@ CORS(app)
 DECK_FILE = Path(__file__).parent / "deck.json"
 ORACLE_DECK_FILE = Path(__file__).parent / "oracle_deck.json"
 USER_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "user_data"
+DECK_TYPES = ("standard", "tarot")
 _deck_lock = threading.Lock()
 _oracle_deck_lock = threading.Lock()
 
 
+def _build_deck(deck_type: str, include_jokers: bool) -> list[dict]:
+    if deck_type == "tarot":
+        return new_tarot_deck()
+    return new_deck(include_jokers=include_jokers)
+
+
 def _load_state() -> dict:
-    """Return {"cards": [...], "include_jokers": bool}. Creates a fresh deck if none exists."""
+    """Return {"cards": [...], "include_jokers": bool, "deck_type": str}.
+
+    Creates a fresh standard deck if none exists.
+    """
     if DECK_FILE.exists():
         try:
             data = json.loads(DECK_FILE.read_text())
             # Handle legacy format where the file was just a list of cards.
             if isinstance(data, list):
-                return {"cards": data, "include_jokers": False}
+                return {"cards": data, "include_jokers": False, "deck_type": "standard"}
+            data.setdefault("deck_type", "standard")
             return data
         except Exception:
             pass
-    state = {"cards": new_deck(), "include_jokers": False}
+    state = {"cards": new_deck(), "include_jokers": False, "deck_type": "standard"}
     _save_state(state)
     return state
 
@@ -169,7 +180,13 @@ def oracle_deck_draw():
 def deck_status():
     with _deck_lock:
         state = _load_state()
-    return jsonify({"remaining": len(state["cards"]), "include_jokers": state["include_jokers"]})
+    return jsonify(
+        {
+            "remaining": len(state["cards"]),
+            "include_jokers": state["include_jokers"],
+            "deck_type": state["deck_type"],
+        }
+    )
 
 
 @app.route("/api/deck/draw", methods=["POST"])
@@ -183,18 +200,26 @@ def deck_draw():
         state = _load_state()
         deck = state["cards"]
         include_jokers = state["include_jokers"]
+        deck_type = state["deck_type"]
         deck_was_reset = False
         cards_drawn = []
 
         for _ in range(count):
             if not deck:
-                deck = new_deck(include_jokers=include_jokers)
+                deck = _build_deck(deck_type, include_jokers)
                 deck_was_reset = True
             card, deck = draw_card(deck)
             cards_drawn.append(card)
 
-        _save_state({"cards": deck, "include_jokers": include_jokers})
-    return jsonify({"cards": cards_drawn, "remaining": len(deck), "deck_was_reset": deck_was_reset})
+        _save_state({"cards": deck, "include_jokers": include_jokers, "deck_type": deck_type})
+    return jsonify(
+        {
+            "cards": cards_drawn,
+            "remaining": len(deck),
+            "deck_was_reset": deck_was_reset,
+            "deck_type": deck_type,
+        }
+    )
 
 
 @app.route("/api/user-data", methods=["GET"])
@@ -207,10 +232,16 @@ def deck_reset():
     data = request.get_json() or {}
     with _deck_lock:
         state = _load_state()
-        include_jokers = bool(data.get("include_jokers", state["include_jokers"]))
-        deck = new_deck(include_jokers=include_jokers)
-        _save_state({"cards": deck, "include_jokers": include_jokers})
-    return jsonify({"remaining": len(deck), "include_jokers": include_jokers})
+        deck_type = data.get("deck_type", state["deck_type"])
+        if deck_type not in DECK_TYPES:
+            return jsonify({"error": f"deck_type must be one of {DECK_TYPES}"}), 400
+        requested_jokers = bool(data.get("include_jokers", state["include_jokers"]))
+        include_jokers = False if deck_type == "tarot" else requested_jokers
+        deck = _build_deck(deck_type, include_jokers)
+        _save_state({"cards": deck, "include_jokers": include_jokers, "deck_type": deck_type})
+    return jsonify(
+        {"remaining": len(deck), "include_jokers": include_jokers, "deck_type": deck_type}
+    )
 
 
 if __name__ == "__main__":

@@ -6,6 +6,11 @@ export const SUIT_SYMBOLS: Record<string, string> = {
   Spades: "♠",
   Clubs: "♣",
   Joker: "★",
+  "Major Arcana": "✦",
+  Wands: "🜂",
+  Cups: "🜄",
+  Swords: "🜁",
+  Pentacles: "🜃",
 };
 
 export const ACTION_MAP: Record<string, string> = {
@@ -79,6 +84,6 @@ export const HEX_CONTENTS_SPECIAL: Record<number, string> = {
 
 export function suitColor(suit: string, isLatest: boolean): string {
   if (suit === "Hearts" || suit === "Diamonds") return "text-red-400";
-  if (suit === "Joker") return "text-purple-400";
+  if (suit === "Joker" || suit === "Major Arcana") return "text-purple-400";
   return isLatest ? "text-gray-200" : "text-gray-500";
 }

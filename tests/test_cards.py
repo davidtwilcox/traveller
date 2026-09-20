@@ -1,6 +1,16 @@
 import pytest
 
-from traveller.cards import JOKERS, RANKS, SUITS, draw_card, new_deck
+from traveller.cards import (
+    JOKERS,
+    MAJOR_ARCANA,
+    RANKS,
+    SUITS,
+    TAROT_MINOR_RANKS,
+    TAROT_SUITS,
+    draw_card,
+    new_deck,
+    new_tarot_deck,
+)
 
 
 def test_new_deck_has_52_cards():
@@ -90,3 +100,48 @@ def test_new_deck_jokers_are_independent_copies():
     fresh = new_deck(include_jokers=True)
     fresh_jokers = [c for c in fresh if c["suit"] == "Joker"]
     assert all(j["rank"] != "MUTATED" for j in fresh_jokers)
+
+
+def test_new_tarot_deck_has_78_cards():
+    assert len(new_tarot_deck()) == 78
+
+
+def test_new_tarot_deck_has_22_major_arcana():
+    deck = new_tarot_deck()
+    major = [c for c in deck if c["suit"] == "Major Arcana"]
+    assert len(major) == 22
+    assert {c["rank"] for c in major} == set(MAJOR_ARCANA)
+
+
+def test_new_tarot_deck_has_56_minor_arcana():
+    deck = new_tarot_deck()
+    minor = [c for c in deck if c["suit"] != "Major Arcana"]
+    assert len(minor) == 56
+    for suit in TAROT_SUITS:
+        for rank in TAROT_MINOR_RANKS:
+            assert {"suit": suit, "rank": rank} in deck
+
+
+def test_new_tarot_deck_no_duplicates():
+    deck = new_tarot_deck()
+    pairs = [(c["suit"], c["rank"]) for c in deck]
+    assert len(pairs) == len(set(pairs))
+
+
+def test_draw_card_from_tarot_deck_returns_a_valid_card():
+    all_suits = {"Major Arcana", *TAROT_SUITS}
+    all_ranks = set(MAJOR_ARCANA) | set(TAROT_MINOR_RANKS)
+    deck = new_tarot_deck()
+    card, remaining = draw_card(deck)
+    assert card["suit"] in all_suits
+    assert card["rank"] in all_ranks
+
+
+def test_draw_all_78_tarot_cards_are_unique():
+    deck = new_tarot_deck()
+    drawn = []
+    while deck:
+        card, deck = draw_card(deck)
+        drawn.append((card["suit"], card["rank"]))
+    assert len(drawn) == 78
+    assert len(set(drawn)) == 78

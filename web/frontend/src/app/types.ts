@@ -1,6 +1,7 @@
 export type AdvantageMode = "disadvantage" | "normal" | "advantage";
 export type OracleOdds = "likely" | "even" | "unlikely";
 export type ActiveTab = "dice" | "cards" | "oracle" | "generator" | "user data";
+export type DeckType = "standard" | "tarot";
 
 export interface UserDataRoll {
   roll: number;
@@ -58,6 +59,7 @@ export interface RollEntry {
   cards?: { suit: string; rank: string }[];
   cardsRemaining?: number;
   deckWasReset?: boolean;
+  deckType?: DeckType;
   isOracle?: boolean;
   oracleType?: "yesno" | "how" | "action" | "detail" | "topic" | "randomevent" | "pacing" | "failure";
   oracleOdds?: OracleOdds;

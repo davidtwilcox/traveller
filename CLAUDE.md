@@ -48,9 +48,10 @@ The entry point `traveller-dice` maps to `traveller.cli:main`.
   - `roll_digit_dice(num_digits, sides)` — combines rolls into a multi-digit number (e.g. `[3,5]` → `35`). Sides must be 2–9.
   - `roll_osr_stats()` — rolls 6 × 3d6 for character generation.
 - `cards.py` — core card logic.
-  - `new_deck(include_jokers=False)` — returns a freshly shuffled 52- or 54-card deck.
-  - `draw_card(deck)` — pops a card from deck in place; returns `(card, deck)`; raises `ValueError` on empty deck.
-  - Cards are dicts: `{"suit": "Hearts", "rank": "Ace"}`. Jokers use `suit="Joker"`.
+  - `new_deck(include_jokers=False)` — returns a freshly shuffled standard 52- or 54-card deck.
+  - `new_tarot_deck()` — returns a freshly shuffled 78-card tarot deck (22 major arcana + 56 minor arcana across Wands, Cups, Swords, Pentacles; no jokers).
+  - `draw_card(deck)` — pops a card from deck in place; returns `(card, deck)`; raises `ValueError` on empty deck. Works on either deck type.
+  - Cards are dicts: `{"suit": "Hearts", "rank": "Ace"}`. Jokers use `suit="Joker"`. Tarot major arcana use `suit="Major Arcana"`.
 - `cli.py` — interactive CLI that calls `roll_dice` and prints results.
 - `__main__.py` — allows `python -m traveller` invocation.
 
@@ -64,10 +65,10 @@ New game mechanics should be added as functions in `dice.py` or new modules unde
   - `POST /api/roll-d66` — 2-digit dice (convenience shortcut).
   - `POST /api/roll-d666` — 3-digit dice (convenience shortcut).
   - `POST /api/roll-osr-stats` — returns 6 stat arrays.
-  - Cards tab deck routes (state persisted to `web/api/deck.json`, gitignored):
-  - `GET /api/deck/status` — returns `{remaining, include_jokers}`.
-  - `POST /api/deck/draw` — accepts `{count}`; returns `{cards, remaining, deck_was_reset}`. Auto-resets and reshuffles when the deck is exhausted.
-  - `POST /api/deck/reset` — accepts `{include_jokers}`; reshuffles a fresh deck and returns `{remaining, include_jokers}`.
+  - Cards tab deck routes (state persisted to `web/api/deck.json`, gitignored; deck type is `"standard"` or `"tarot"`):
+  - `GET /api/deck/status` — returns `{remaining, include_jokers, deck_type}`.
+  - `POST /api/deck/draw` — accepts `{count}`; returns `{cards, remaining, deck_was_reset, deck_type}`. Auto-resets and reshuffles (using the current deck type) when the deck is exhausted.
+  - `POST /api/deck/reset` — accepts `{include_jokers, deck_type}`; reshuffles a fresh deck and returns `{remaining, include_jokers, deck_type}`. `include_jokers` is forced to `false` when `deck_type` is `"tarot"` (jokers only exist in the standard deck).
   - Oracle/Generator deck route (separate 52-card deck, no jokers, persisted to `web/api/oracle_deck.json`, gitignored):
   - `POST /api/oracle-deck/draw` — accepts `{count}`; returns `{cards, remaining, deck_was_reset}`. Auto-resets without jokers.
   - User Data route (reads YAML files from `user_data/` at the repo root on every request):
@@ -79,7 +80,7 @@ New game mechanics should be added as functions in `dice.py` or new modules unde
   - `src/app/api.ts` — API utilities: `parseJsonOrThrow`, `drawAndInterpret`, `buildRandomEvent`.
   - `src/app/components/` — per-tab components, each owning its own state and handlers:
     - `DiceTab.tsx` — Standard controls (number of rolls, number of dice, die type, modifier, drop-lowest, advantage, Roll button) and Special/Presets (d66, d666, OSR Stats, user presets). Default number of dice is 3; drop-lowest is auto-cleared when number of dice is reduced to 1.
-    - `CardsTab.tsx` — number of cards input, include-jokers checkbox, Draw and Reset Deck buttons. Remaining count shown in header.
+    - `CardsTab.tsx` — Standard/Tarot deck toggle (defaults to Standard; switching deck type resets and reshuffles, with confirmation), number of cards input, include-jokers checkbox (unchecked and disabled when the Tarot deck is selected), Draw and Reset Deck buttons. Remaining count shown in header.
     - `OracleTab.tsx` — Yes/No group (Likely/Even/Unlikely odds toggle + Answer button rolling 2d6); How group (Answer button rolling 1d6); Focus group (Action, Detail, Topic, Random Event buttons — each draws from the oracle deck and interprets the card rank, appending the suit domain); GM Moves group (Pacing button rolling 1d6, with a 6 triggering a Random Event draw; Failure button rolling 1d6).
     - `GeneratorTab.tsx` — Plot hook group (Generate — rolls Objective, Adversaries, Rewards); NPC group (Generate — draws Identity and Goal from oracle deck with domain, rolls Notable feature with optional Detail draw, rolls Attitude to PCs, draws Conversation from oracle deck with domain); Dungeon crawler group (Theme — draws Appearance and Use from oracle deck with domain; Area — rolls Location, Encounter, Object, Total exits); Hex crawler group (Current hex — rolls Terrain and Contents with possible sub-roll; Random event — 1d6, on 5–6 draws Action + Topic cards from oracle deck).
     - `UserDataTab.tsx` — fetches `/api/user-data` on mount; renders one group per YAML `heading` with one button per `table`. Clicking a button rolls the table's `die` `die_rolls` times client-side (`Math.random`), and for roll `i` looks up the table row whose `roll` matches and takes that row's `result[i]`, concatenating the picked values in sequence for the final output.
