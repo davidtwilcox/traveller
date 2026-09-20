@@ -1,6 +1,23 @@
 export type AdvantageMode = "disadvantage" | "normal" | "advantage";
 export type OracleOdds = "likely" | "even" | "unlikely";
-export type ActiveTab = "dice" | "cards" | "oracle" | "generator";
+export type ActiveTab = "dice" | "cards" | "oracle" | "generator" | "user data";
+
+export interface UserDataRoll {
+  roll: number;
+  result: string[];
+}
+
+export interface UserDataTable {
+  table: string;
+  die: string;
+  die_rolls: number;
+  rolls: UserDataRoll[];
+}
+
+export interface UserDataGroup {
+  heading: string;
+  tables: UserDataTable[];
+}
 
 export interface PresetSettings {
   numRolls: number;
@@ -50,4 +67,7 @@ export interface RollEntry {
   isGenerator?: boolean;
   generatorType?: "plothook" | "npc" | "dungeontheme" | "dungeonarea" | "hexcurrent" | "hexevent";
   generatorFields?: GeneratorField[];
+  isUserData?: boolean;
+  userDataHeading?: string;
+  userDataResult?: string;
 }

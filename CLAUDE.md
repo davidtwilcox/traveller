@@ -70,6 +70,8 @@ New game mechanics should be added as functions in `dice.py` or new modules unde
   - `POST /api/deck/reset` — accepts `{include_jokers}`; reshuffles a fresh deck and returns `{remaining, include_jokers}`.
   - Oracle/Generator deck route (separate 52-card deck, no jokers, persisted to `web/api/oracle_deck.json`, gitignored):
   - `POST /api/oracle-deck/draw` — accepts `{count}`; returns `{cards, remaining, deck_was_reset}`. Auto-resets without jokers.
+  - User Data route (reads YAML files from `user_data/` at the repo root on every request):
+  - `GET /api/user-data` — returns `{groups}`, where each group is a parsed YAML file (see "User data files" below).
 - `web/frontend/` — Next.js 15 / React 19 / TypeScript / Tailwind CSS frontend.
   - `src/app/page.tsx` — top-level layout: tabbed left panel and History panel on the right. Holds shared state (history, loading, error) and composes tab components.
   - `src/app/types.ts` — shared TypeScript interfaces (`RollEntry`, `PresetSettings`, `Preset`, etc.).
@@ -80,11 +82,34 @@ New game mechanics should be added as functions in `dice.py` or new modules unde
     - `CardsTab.tsx` — number of cards input, include-jokers checkbox, Draw and Reset Deck buttons. Remaining count shown in header.
     - `OracleTab.tsx` — Yes/No group (Likely/Even/Unlikely odds toggle + Answer button rolling 2d6); How group (Answer button rolling 1d6); Focus group (Action, Detail, Topic, Random Event buttons — each draws from the oracle deck and interprets the card rank, appending the suit domain); GM Moves group (Pacing button rolling 1d6, with a 6 triggering a Random Event draw; Failure button rolling 1d6).
     - `GeneratorTab.tsx` — Plot hook group (Generate — rolls Objective, Adversaries, Rewards); NPC group (Generate — draws Identity and Goal from oracle deck with domain, rolls Notable feature with optional Detail draw, rolls Attitude to PCs, draws Conversation from oracle deck with domain); Dungeon crawler group (Theme — draws Appearance and Use from oracle deck with domain; Area — rolls Location, Encounter, Object, Total exits); Hex crawler group (Current hex — rolls Terrain and Contents with possible sub-roll; Random event — 1d6, on 5–6 draws Action + Topic cards from oracle deck).
+    - `UserDataTab.tsx` — fetches `/api/user-data` on mount; renders one group per YAML `heading` with one button per `table`. Clicking a button rolls the table's `die` `die_rolls` times client-side (`Math.random`), and for roll `i` looks up the table row whose `roll` matches and takes that row's `result[i]`, concatenating the picked values in sequence for the final output.
     - `HistoryPanel.tsx` — scrollable history list with per-entry rendering for dice rolls, cards, oracle results, and generator output.
   - Die types available: d3, d4, d5, d6, d7, d8, d10, d12, d14, d16, d20, d24, d30, d60, d100, d1000.
   - Presets (persisted to `localStorage` key `traveller-presets`) store all roll settings: number of rolls, number of dice, die type, modifier, drop-lowest, and advantage. Applying a preset uses the preset's own number of rolls, not the current UI value.
   - The Oracle and Generator tabs share a separate 52-card deck (no jokers) distinct from the Cards tab deck.
   - The frontend proxies `/api/*` to the Flask server at port 5000 (configured in `next.config.mjs`).
+
+### User data files (`user_data/`)
+
+YAML files in this directory drive the User Data tab. Each file is one group:
+
+```yaml
+heading: Deity names          # labels the group in the UI
+tables:
+  - table: Creator deity name (short)   # labels the button
+    die: d10                            # die notation; sides parsed from the digits
+    die_rolls: 2                        # number of independent rolls made when the button is clicked
+    rolls:
+      - roll: 1                         # matched against a die result
+        result: [A, ka]                 # result[i] is used for the i-th die roll (0-indexed)
+      - roll: 2
+        result: [O, lm]
+      # ... one entry per possible die value
+```
+
+A file may define multiple `tables` under one `heading` (rendered as multiple buttons in one group). Clicking a
+button rolls the die `die_rolls` times; for roll `i` it looks up the `rolls` entry whose `roll` matches that die
+result and takes `result[i]`, then concatenates the picked values in order to form the output.
 
 ## Linting
 

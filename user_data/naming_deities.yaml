@@ -1,0 +1,46 @@
+heading: Deity names
+tables:
+  - table: Creator deity name (short)
+    die: d10
+    die_rolls: 2
+    rolls:
+      - roll: 1
+        result:
+          - A
+          - ka
+      - roll: 2
+        result:
+          - O
+          - lm
+      - roll: 3
+        result:
+          - U
+          - mur
+      - roll: 4
+        result:
+          - A
+          - os
+      - roll: 5
+        result:
+          - O
+          - phos
+      - roll: 6
+        result:
+          - U
+          - shu
+      - roll: 7
+        result:
+          - Tsa
+          - ta
+      - roll: 8
+        result:
+          - Jha
+          - tha
+      - roll: 9
+        result:
+          - Ola
+          - to
+      - roll: 10
+        result:
+          - Ulu
+          - tuan

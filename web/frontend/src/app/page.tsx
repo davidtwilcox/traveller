@@ -6,6 +6,7 @@ import DiceTab from "./components/DiceTab";
 import CardsTab from "./components/CardsTab";
 import OracleTab from "./components/OracleTab";
 import GeneratorTab from "./components/GeneratorTab";
+import UserDataTab from "./components/UserDataTab";
 import HistoryPanel from "./components/HistoryPanel";
 
 export default function Home() {
@@ -33,7 +34,7 @@ export default function Home() {
             <p className="text-xs text-gray-500 mt-1 tracking-wider">Dice Roller</p>
           </div>
           <div className="flex px-6 mt-4">
-            {(["dice", "cards", "oracle", "generator"] as ActiveTab[]).map((tab) => (
+            {(["dice", "cards", "oracle", "generator", "user data"] as ActiveTab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -57,6 +58,7 @@ export default function Home() {
         {activeTab === "cards" && <CardsTab {...tabProps} />}
         {activeTab === "oracle" && <OracleTab {...tabProps} />}
         {activeTab === "generator" && <GeneratorTab {...tabProps} />}
+        {activeTab === "user data" && <UserDataTab {...tabProps} />}
 
       </div>
 

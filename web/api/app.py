@@ -2,6 +2,7 @@ import json
 import threading
 from pathlib import Path
 
+import yaml
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 
@@ -13,6 +14,7 @@ CORS(app)
 
 DECK_FILE = Path(__file__).parent / "deck.json"
 ORACLE_DECK_FILE = Path(__file__).parent / "oracle_deck.json"
+USER_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "user_data"
 _deck_lock = threading.Lock()
 _oracle_deck_lock = threading.Lock()
 
@@ -53,6 +55,18 @@ def _load_oracle_state() -> dict:
 
 def _save_oracle_state(state: dict) -> None:
     ORACLE_DECK_FILE.write_text(json.dumps(state))
+
+
+def _load_user_data() -> list[dict]:
+    """Return parsed groups from every YAML file in the user_data directory."""
+    if not USER_DATA_DIR.is_dir():
+        return []
+    groups = []
+    for path in sorted(USER_DATA_DIR.glob("*.yaml")):
+        data = yaml.safe_load(path.read_text())
+        if data:
+            groups.append(data)
+    return groups
 
 
 @app.route("/api/roll", methods=["POST"])
@@ -181,6 +195,11 @@ def deck_draw():
 
         _save_state({"cards": deck, "include_jokers": include_jokers})
     return jsonify({"cards": cards_drawn, "remaining": len(deck), "deck_was_reset": deck_was_reset})
+
+
+@app.route("/api/user-data", methods=["GET"])
+def user_data():
+    return jsonify({"groups": _load_user_data()})
 
 
 @app.route("/api/deck/reset", methods=["POST"])

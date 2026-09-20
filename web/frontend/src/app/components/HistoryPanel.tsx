@@ -45,7 +45,19 @@ export default function HistoryPanel({ history, onClear }: HistoryPanelProps) {
                 <span className="text-xs text-gray-600">{entry.timestamp}</span>
               </div>
 
-              {entry.isGenerator && entry.generatorFields ? (
+              {entry.isUserData ? (
+                <div className="mt-2">
+                  {entry.userDataHeading && (
+                    <span className="text-xs text-gray-500 uppercase tracking-widest">
+                      {entry.userDataHeading}
+                    </span>
+                  )}
+                  <div className={`text-2xl font-bold ${isLatest ? "text-amber-300" : "text-gray-300"}`}>
+                    {entry.userDataResult}
+                  </div>
+                  <span className="text-xs text-gray-600 mt-1 block">[{entry.rolls.join(", ")}]</span>
+                </div>
+              ) : entry.isGenerator && entry.generatorFields ? (
                 <div className="mt-2 flex flex-col gap-2.5">
                   {entry.generatorFields.map((field, i) => (
                     <div key={i}>
