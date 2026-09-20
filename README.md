@@ -9,7 +9,7 @@ Random generator tools for solo [Traveller TTRPG](https://en.wikipedia.org/wiki/
 - **Digit dice** — d66 / d666 rolls that combine die results into a multi-digit number (e.g. for Traveller tables)
 - **OSR stats** — roll 6 sets of 3d6 for character generation
 - **Presets** — save and reload favourite roll configurations including number of rolls (persisted in browser localStorage)
-- **Card deck** — draw from a standard 52-card deck (optionally with 2 jokers); deck state persists across draws and auto-resets when exhausted
+- **Card decks** — draw from a standard 52-card deck (optionally with 2 jokers) or a 78-card Rider–Waite–Smith-style tarot deck; deck state persists across draws and auto-resets when exhausted
 - **Oracle** — yes/no questions with configurable odds; quality ratings; focus draws (action, detail, topic, random event) using a dedicated card deck; GM moves (pacing, failure)
 - **Generators** — plot hooks, NPCs, dungeon crawler themes and areas, hex crawler current hex and random events
 - **User data** — YAML-defined naming/lookup tables (e.g. deity names) rolled and combined into a result
@@ -20,7 +20,11 @@ Random generator tools for solo [Traveller TTRPG](https://en.wikipedia.org/wiki/
 ## Installation
 
 ```bash
+# Core package with development dependencies
 pip install -e ".[test,lint]"
+
+# Core package with web API dependencies
+pip install -e ".[web]"
 ```
 
 Requires Python 3.10+.
@@ -54,7 +58,7 @@ python -m traveller
 
 ```python
 from traveller.dice import roll_dice, roll_digit_dice, roll_osr_stats
-from traveller.cards import new_deck, draw_card
+from traveller.cards import draw_card, new_deck, new_tarot_deck
 
 # Roll 2d6 with a +2 modifier
 rolls, total = roll_dice(2, 6, modifier=2)
@@ -72,6 +76,10 @@ stats = roll_osr_stats()  # list of (rolls, total) tuples
 deck = new_deck()                        # 52 cards
 deck = new_deck(include_jokers=True)     # 54 cards
 card, deck = draw_card(deck)             # {"suit": "Hearts", "rank": "Ace"}, remaining deck
+
+# Draw from a 78-card tarot deck
+tarot_deck = new_tarot_deck()
+card, tarot_deck = draw_card(tarot_deck) # e.g. {"suit": "Wands", "rank": "Two"}
 ```
 
 ### Web App
@@ -88,7 +96,7 @@ Open http://localhost:3000. The `--build` flag is only needed on the first run o
 
 #### Manual
 
-**Backend** (requires Python with `flask` and `flask-cors`):
+**Backend** (requires Python with `flask`, `flask-cors`, and `pyyaml`):
 
 ```bash
 cd web/api
@@ -109,7 +117,7 @@ Open http://localhost:3000 in your browser. The frontend proxies all `/api/*` re
 The web UI is organised into five tabs:
 
 - **Dice** — standard roll controls (number of rolls, die type, modifier, drop-lowest, advantage) alongside special rolls (d66, d666) and user presets
-- **Cards** — draw one or more cards from the persistent deck; optionally include 2 jokers; reset the deck at any time
+- **Cards** — switch between persistent Standard and Tarot decks; draw one or more cards, optionally include 2 jokers in the Standard deck, and reset at any time
 - **Oracle** — yes/no answers with Likely/Even/Unlikely odds; quality ratings (How); Focus draws (Action, Detail, Topic, Random Event) that interpret card rank and suit domain; GM Moves (Pacing, Failure) for solo play structure
 - **Generator** — one-click generators for plot hooks, NPCs, dungeon crawler themes and areas, and hex crawler events; card-based results include the suit domain for narrative context
 - **User Data** — buttons generated from YAML files in `user_data/`; each button rolls a die the configured number of times and combines the looked-up results into one output (e.g. building a deity name from prefix/suffix syllables)

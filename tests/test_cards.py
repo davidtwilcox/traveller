@@ -122,6 +122,25 @@ def test_new_tarot_deck_has_56_minor_arcana():
             assert {"suit": suit, "rank": rank} in deck
 
 
+def test_tarot_minor_ranks_use_written_card_names():
+    assert TAROT_MINOR_RANKS == (
+        "Ace",
+        "Two",
+        "Three",
+        "Four",
+        "Five",
+        "Six",
+        "Seven",
+        "Eight",
+        "Nine",
+        "Ten",
+        "Page",
+        "Knight",
+        "Queen",
+        "King",
+    )
+
+
 def test_new_tarot_deck_no_duplicates():
     deck = new_tarot_deck()
     pairs = [(c["suit"], c["rank"]) for c in deck]

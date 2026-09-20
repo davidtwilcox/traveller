@@ -8,6 +8,7 @@ from flask_cors import CORS
 
 from traveller.cards import draw_card, new_deck, new_tarot_deck
 from traveller.dice import roll_dice, roll_digit_dice
+from traveller.dice import roll_osr_stats as generate_osr_stats
 
 app = Flask(__name__)
 CORS(app)
@@ -18,6 +19,29 @@ USER_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "user_data"
 DECK_TYPES = ("standard", "tarot")
 _deck_lock = threading.Lock()
 _oracle_deck_lock = threading.Lock()
+
+
+def _valid_cards(cards: object) -> bool:
+    return isinstance(cards, list) and all(
+        isinstance(card, dict)
+        and isinstance(card.get("suit"), str)
+        and isinstance(card.get("rank"), str)
+        for card in cards
+    )
+
+
+def _json_object() -> dict:
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        raise ValueError("request body must be a JSON object")
+    return data
+
+
+def _boolean_field(data: dict, name: str, default: bool) -> bool:
+    value = data.get(name, default)
+    if not isinstance(value, bool):
+        raise ValueError(f"{name} must be a boolean")
+    return value
 
 
 def _build_deck(deck_type: str, include_jokers: bool) -> list[dict]:
@@ -35,10 +59,21 @@ def _load_state() -> dict:
         try:
             data = json.loads(DECK_FILE.read_text())
             # Handle legacy format where the file was just a list of cards.
-            if isinstance(data, list):
+            if isinstance(data, list) and _valid_cards(data):
                 return {"cards": data, "include_jokers": False, "deck_type": "standard"}
-            data.setdefault("deck_type", "standard")
-            return data
+            if isinstance(data, dict):
+                deck_type = data.get("deck_type", "standard")
+                include_jokers = data.get("include_jokers")
+                if (
+                    deck_type in DECK_TYPES
+                    and isinstance(include_jokers, bool)
+                    and _valid_cards(data.get("cards"))
+                ):
+                    return {
+                        "cards": data["cards"],
+                        "include_jokers": include_jokers,
+                        "deck_type": deck_type,
+                    }
         except Exception:
             pass
     state = {"cards": new_deck(), "include_jokers": False, "deck_type": "standard"}
@@ -55,7 +90,7 @@ def _load_oracle_state() -> dict:
     if ORACLE_DECK_FILE.exists():
         try:
             data = json.loads(ORACLE_DECK_FILE.read_text())
-            if isinstance(data, dict) and "cards" in data:
+            if isinstance(data, dict) and _valid_cards(data.get("cards")):
                 return data
         except Exception:
             pass
@@ -82,13 +117,15 @@ def _load_user_data() -> list[dict]:
 
 @app.route("/api/roll", methods=["POST"])
 def roll():
-    data = request.get_json()
     try:
+        data = _json_object()
         num_dice = int(data["num_dice"])
         sides = int(data["sides"])
         modifier = int(data.get("modifier") or 0)
-        drop_lowest = bool(data.get("drop_lowest", False))
+        drop_lowest = _boolean_field(data, "drop_lowest", False)
         advantage = data.get("advantage", "normal")
+        if advantage not in ("normal", "advantage", "disadvantage"):
+            raise ValueError("advantage must be normal, advantage, or disadvantage")
 
         rolls_a, total_a = roll_dice(num_dice, sides, modifier, drop_lowest=drop_lowest)
 
@@ -109,19 +146,19 @@ def roll():
             )
 
         return jsonify({"rolls": rolls_a, "total": total_a})
-    except (ValueError, KeyError) as exc:
+    except (ValueError, TypeError, KeyError) as exc:
         return jsonify({"error": str(exc)}), 400
 
 
 @app.route("/api/roll-digit", methods=["POST"])
 def roll_digit():
-    data = request.get_json()
     try:
+        data = _json_object()
         num_digits = int(data["num_digits"])
         sides = int(data["sides"])
         rolls, total = roll_digit_dice(num_digits, sides)
         return jsonify({"rolls": rolls, "total": total})
-    except (ValueError, KeyError) as exc:
+    except (ValueError, TypeError, KeyError) as exc:
         return jsonify({"error": str(exc)}), 400
 
 
@@ -145,16 +182,16 @@ def roll_d666():
 
 @app.route("/api/roll-osr-stats", methods=["POST"])
 def roll_osr_stats():
-    stats = []
-    for _ in range(6):
-        rolls, total = roll_dice(3, 6)
-        stats.append({"rolls": rolls, "total": total})
+    stats = [{"rolls": rolls, "total": total} for rolls, total in generate_osr_stats()]
     return jsonify({"stats": stats})
 
 
 @app.route("/api/oracle-deck/draw", methods=["POST"])
 def oracle_deck_draw():
-    data = request.get_json() or {}
+    try:
+        data = _json_object()
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     try:
         count = max(1, int(data.get("count", 1)))
     except (ValueError, TypeError):
@@ -191,7 +228,10 @@ def deck_status():
 
 @app.route("/api/deck/draw", methods=["POST"])
 def deck_draw():
-    data = request.get_json() or {}
+    try:
+        data = _json_object()
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     try:
         count = max(1, int(data.get("count", 1)))
     except (ValueError, TypeError):
@@ -229,16 +269,19 @@ def user_data():
 
 @app.route("/api/deck/reset", methods=["POST"])
 def deck_reset():
-    data = request.get_json() or {}
-    with _deck_lock:
-        state = _load_state()
-        deck_type = data.get("deck_type", state["deck_type"])
-        if deck_type not in DECK_TYPES:
-            return jsonify({"error": f"deck_type must be one of {DECK_TYPES}"}), 400
-        requested_jokers = bool(data.get("include_jokers", state["include_jokers"]))
-        include_jokers = False if deck_type == "tarot" else requested_jokers
-        deck = _build_deck(deck_type, include_jokers)
-        _save_state({"cards": deck, "include_jokers": include_jokers, "deck_type": deck_type})
+    try:
+        data = _json_object()
+        with _deck_lock:
+            state = _load_state()
+            deck_type = data.get("deck_type", state["deck_type"])
+            if deck_type not in DECK_TYPES:
+                raise ValueError(f"deck_type must be one of {DECK_TYPES}")
+            requested_jokers = _boolean_field(data, "include_jokers", state["include_jokers"])
+            include_jokers = False if deck_type == "tarot" else requested_jokers
+            deck = _build_deck(deck_type, include_jokers)
+            _save_state({"cards": deck, "include_jokers": include_jokers, "deck_type": deck_type})
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
     return jsonify(
         {"remaining": len(deck), "include_jokers": include_jokers, "deck_type": deck_type}
     )

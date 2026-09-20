@@ -28,3 +28,8 @@ def roll_digit_dice(num_digits: int, sides: int) -> tuple[list[int], int]:
     rolls = [random.randint(1, sides) for _ in range(num_digits)]
     result = int("".join(str(r) for r in rolls))
     return rolls, result
+
+
+def roll_osr_stats() -> list[tuple[list[int], int]]:
+    """Roll six 3d6 ability scores."""
+    return [roll_dice(3, 6) for _ in range(6)]

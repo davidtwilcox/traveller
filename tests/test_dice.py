@@ -1,6 +1,6 @@
 import pytest
 
-from traveller.dice import roll_dice, roll_digit_dice
+from traveller.dice import roll_dice, roll_digit_dice, roll_osr_stats
 
 
 def test_roll_dice_returns_rolls_and_total():
@@ -55,3 +55,12 @@ def test_roll_digit_dice_three_digits():
 def test_roll_digit_dice_rejects_invalid_inputs(num_digits, sides):
     with pytest.raises(ValueError):
         roll_digit_dice(num_digits, sides)
+
+
+def test_roll_osr_stats_returns_six_3d6_scores():
+    stats = roll_osr_stats()
+    assert len(stats) == 6
+    for rolls, total in stats:
+        assert len(rolls) == 3
+        assert all(1 <= roll <= 6 for roll in rolls)
+        assert total == sum(rolls)
