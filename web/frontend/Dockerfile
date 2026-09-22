@@ -7,6 +7,9 @@ RUN npm ci
 
 COPY web/frontend/ .
 
+ARG API_URL=http://127.0.0.1:5000
+ENV API_URL=$API_URL
+
 RUN npm run build
 
 FROM node:20-alpine AS runner

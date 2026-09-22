@@ -10,6 +10,7 @@ COPY web/api/requirements.txt web/api/
 RUN pip install --no-cache-dir -r web/api/requirements.txt
 
 COPY web/api/ web/api/
+COPY user_data/ user_data/
 
 WORKDIR /app/web/api
 
